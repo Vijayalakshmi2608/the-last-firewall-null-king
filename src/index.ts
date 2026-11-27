@@ -59,6 +59,7 @@ const game = {
 let bossCore = 0 as Entity
 let bossEye = 0 as Entity
 let shieldRing = 0 as Entity
+const bossOrbiters: Entity[] = []
 const generatorEntities: Entity[] = []
 const generatorLights: Entity[] = []
 const bossParts: Entity[] = []
@@ -102,6 +103,16 @@ function buildArena() {
   bossCore = sphere(Vector3.create(8, 2.5, 8), Vector3.create(1.3, 1.3, 1.3), '#ff334dff')
   bossEye = box(Vector3.create(8, 3.6, 7.0), Vector3.create(2.4, 0.35, 0.18), '#7df9ffff')
   shieldRing = sphere(Vector3.create(8, 2.5, 8), Vector3.create(3.2, 3.2, 3.2), '#182a4d66')
+  for (let i = 0; i < 4; i++) {
+    const angle = (Math.PI * 2 * i) / 4
+    bossOrbiters.push(
+      sphere(
+        Vector3.create(8 + Math.cos(angle) * 2.15, 2.5, 8 + Math.sin(angle) * 2.15),
+        Vector3.create(0.28, 0.28, 0.28),
+        i % 2 === 0 ? '#ffcf5aff' : '#7df9ffff'
+      )
+    )
+  }
   bossParts.push(bossCore, bossEye, shieldRing)
   box(Vector3.create(8, 1.3, 8), Vector3.create(3.6, 0.45, 1.2), '#1a233dff')
   box(Vector3.create(8, 3.8, 8), Vector3.create(3.6, 0.45, 1.2), '#1a233dff')
@@ -131,7 +142,8 @@ function buildArena() {
 
 function activateGenerator(index: number) {
   if (game.phase !== 'SHIELD' || game.generators[index] >= 100) return
-  game.generators[index] = Math.min(100, game.generators[index] + 25)
+  // One clear interaction per generator keeps the encounter readable for first-time players.
+  game.generators[index] = 100
   game.warning = `GENERATOR ${index + 1} SYNCHRONIZED`
   game.warningTime = 1.2
   const light = generatorLights[index]
@@ -252,6 +264,29 @@ function beginExecution() {
   Material.setPbrMaterial(bossCore, { albedoColor: color('#fff06aff') })
 }
 
+function restartGame() {
+  game.phase = 'AWAKENING'
+  game.phaseTime = 0
+  game.elapsed = 0
+  game.playerHealth = PLAYER_MAX_HEALTH
+  game.bossHealth = BOSS_MAX_HEALTH
+  game.shield = 100
+  game.generators = [0, 0, 0]
+  game.reactorHits = 0
+  game.attackCooldown = 2.5
+  game.warning = 'THE NULL KING AWAKENS'
+  game.warningTime = 3
+  game.lastDamageTime = -10
+  game.consecutiveReflections = 0
+  game.achievement = false
+  game.ended = false
+  game.attacks.forEach((attack) => engine.removeEntity(attack.entity))
+  game.attacks.length = 0
+  generatorLights.forEach((light) => Material.setPbrMaterial(light, { albedoColor: color('#27e6ffff') }))
+  Material.setPbrMaterial(shieldRing, { albedoColor: color('#182a4d66') })
+  Material.setPbrMaterial(bossCore, { albedoColor: color('#ff334dff') })
+}
+
 function tryCoreHit() {
   if (game.phase !== 'EXECUTION' || distance(playerPosition(), Vector3.create(8, 2.5, 8)) > 3.5) return
   if (
@@ -271,7 +306,15 @@ function tryCoreHit() {
 }
 
 function phaseSystem(dt: number) {
-  if (game.ended) return
+  if (game.ended) {
+    if (
+      inputSystem.isTriggered(InputAction.IA_PRIMARY, PointerEventType.PET_DOWN) ||
+      inputSystem.isTriggered(InputAction.IA_POINTER, PointerEventType.PET_DOWN)
+    ) {
+      restartGame()
+    }
+    return
+  }
   game.elapsed += dt
   game.phaseTime += dt
   game.warningTime = Math.max(0, game.warningTime - dt)
@@ -318,6 +361,14 @@ function pulseSystem(dt: number) {
   coreTransform.scale = Vector3.create(pulse, pulse, pulse)
   const eyeTransform = Transform.getMutable(bossEye)
   eyeTransform.position = Vector3.create(8, 3.6 + Math.sin(game.elapsed * 3) * 0.08, 7)
+  bossOrbiters.forEach((orbiter, index) => {
+    const angle = game.elapsed * 1.6 + (Math.PI * 2 * index) / bossOrbiters.length
+    Transform.getMutable(orbiter).position = Vector3.create(
+      8 + Math.cos(angle) * 2.15,
+      2.5 + Math.sin(game.elapsed * 2 + index) * 0.18,
+      8 + Math.sin(angle) * 2.15
+    )
+  })
 }
 
 export function main() {

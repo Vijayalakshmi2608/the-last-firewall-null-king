@@ -57,7 +57,7 @@ const uiComponent = () => (
       uiTransform={{ width: 700, height: 90, positionType: 'absolute', position: { top: 450 }, padding: 18, alignItems: 'center', justifyContent: 'center' }}
       uiBackground={{ color: Color4.fromHexString('#040812ee') }}
     >
-      <Label value={hud.phase === 'VICTORY' ? 'FIREWALL RESTORED // NULL KING PURGED' : hud.phase === 'DEFEAT' ? 'FIREWALL COLLAPSED // RELOAD SCENE TO RETRY' : ''} fontSize={25} color={Color4.fromHexString(hud.phase === 'VICTORY' ? '#7dff9aff' : '#ff7187ff')} uiTransform={{ width: '100%', height: 45 }} />
+      <Label value={hud.phase === 'VICTORY' ? 'FIREWALL RESTORED // E OR CLICK TO RESTART' : hud.phase === 'DEFEAT' ? 'FIREWALL COLLAPSED // E OR CLICK TO RESTART' : ''} fontSize={25} color={Color4.fromHexString(hud.phase === 'VICTORY' ? '#7dff9aff' : '#ff7187ff')} uiTransform={{ width: '100%', height: 45 }} />
     </UiEntity>
   </UiEntity>
 )
