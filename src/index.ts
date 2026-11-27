@@ -15,6 +15,8 @@ import {
 import { Color4, Vector3 } from '@dcl/sdk/math'
 import { setupUi, hud } from './ui'
 
+console.log('[NULL-KING][BOOT] module evaluated')
+
 const ARENA_CENTER = Vector3.create(8, 0, 8)
 const PLAYER_MAX_HEALTH = 100
 const BOSS_MAX_HEALTH = 100
@@ -372,8 +374,23 @@ function pulseSystem(dt: number) {
 }
 
 export function main() {
+  console.log('[NULL-KING][BOOT] main() entered')
   buildArena()
+  console.log('[NULL-KING][BOOT] arena created', {
+    generatorCount: generatorEntities.length,
+    generatorLightCount: generatorLights.length,
+    bossCore,
+    bossEye,
+    shieldRing,
+    playerEntity: engine.PlayerEntity,
+  })
+  try {
+    console.log('[NULL-KING][BOOT] player transform', Transform.get(engine.PlayerEntity).position)
+  } catch (error) {
+    console.error('[NULL-KING][BOOT] player transform unavailable', error)
+  }
   setupUi()
+  console.log('[NULL-KING][BOOT] HUD registered')
   hud.warning = 'THE NULL KING AWAKENS'
   engine.addSystem(phaseSystem)
   engine.addSystem(pulseSystem)
@@ -383,4 +400,5 @@ export function main() {
       warn('DODGE', 0.35)
     }
   })
+  console.log('[NULL-KING][BOOT] systems registered')
 }
