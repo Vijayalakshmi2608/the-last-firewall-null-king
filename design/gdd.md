@@ -8,7 +8,7 @@ A lightweight Decentraland SDK7 final-boss experience for the Game Over 2026 jam
 
 - Move with native Decentraland avatar locomotion and dodge danger with Space.
 - Read red telegraphs, leave the danger area, and preserve health.
-- Walk close to generators and press E to add activation progress while the boss continues attacking.
+- Walk close to each generator and press E once to synchronize it while the boss continues attacking.
 - In the reflection phase, hold F as a projectile reaches the player to send it back.
 - In the execution phase, approach the exposed reactor and press E or click three times.
 

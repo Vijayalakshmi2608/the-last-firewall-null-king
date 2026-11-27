@@ -12,12 +12,15 @@ import {
   pointerEventsSystem,
   Transform,
 } from '@dcl/sdk/ecs'
-import { Color4, Vector3 } from '@dcl/sdk/math'
+import { Color4, Quaternion, Vector3 } from '@dcl/sdk/math'
 import { setupUi, hud } from './ui'
 
 console.log('[NULL-KING][BOOT] module evaluated')
 
 const ARENA_CENTER = Vector3.create(8, 0, 8)
+const BOSS_HITBOX_CENTER = Vector3.create(8, 2.5, 8)
+const PLAYER_PROJECTILE_HIT_RADIUS = 1.1
+const BOSS_PROJECTILE_HIT_RADIUS = 0.95
 const PLAYER_MAX_HEALTH = 100
 const BOSS_MAX_HEALTH = 100
 const GENERATOR_POSITIONS = [
@@ -36,7 +39,7 @@ type Attack = {
   life: number
   position: Vector3
   velocity: Vector3
-  reflected: boolean
+  state: 'HOSTILE' | 'REFLECTED' | 'SPENT'
 }
 
 const game = {
@@ -208,10 +211,10 @@ function spawnAttack(kind: AttackKind) {
     entity,
     kind,
     age: 0,
-    life: kind === 'laser' ? 0.8 : 5,
+    life: kind === 'laser' ? 0.8 : kind === 'projectile' ? 8 : 5,
     position: start,
     velocity: Vector3.create(velocity.x * (kind === 'laser' ? 0 : 4), velocity.y * 4, velocity.z * 4),
-    reflected: false,
+    state: 'HOSTILE',
   })
 }
 
@@ -223,9 +226,22 @@ function updateAttacks(dt: number) {
     if (attack.kind === 'laser') {
       const t = attack.age / attack.life
       const angle = t * Math.PI * 2
-      attack.position = Vector3.create(8 + Math.cos(angle) * 3.2, 0.25, 8 + Math.sin(angle) * 3.2)
-      Transform.getMutable(attack.entity).position = attack.position
-      if (Math.abs(distance(player, attack.position) - 3.2) < 0.65) damagePlayer(12)
+      attack.position = Vector3.create(8, 0.25, 8)
+      const laserTransform = Transform.getMutable(attack.entity)
+      laserTransform.position = attack.position
+      laserTransform.rotation = Quaternion.fromEulerDegrees(0, (angle * 180) / Math.PI, 0)
+
+      const dx = player.x - 8
+      const dz = player.z - 8
+      const alongBeam = dx * Math.cos(angle) - dz * Math.sin(angle)
+      const acrossBeam = dx * Math.sin(angle) + dz * Math.cos(angle)
+      if (
+        Math.abs(alongBeam) <= 3.5 &&
+        Math.abs(acrossBeam) <= 0.65 &&
+        Math.abs(player.y - attack.position.y) <= 1.2
+      ) {
+        damagePlayer(12)
+      }
     } else {
       attack.position = Vector3.create(
         attack.position.x + attack.velocity.x * dt,
@@ -233,27 +249,40 @@ function updateAttacks(dt: number) {
         attack.position.z + attack.velocity.z * dt
       )
       Transform.getMutable(attack.entity).position = attack.position
-      if (distance(player, attack.position) < 1.1) {
+      if (attack.state === 'HOSTILE' && distance(player, attack.position) < PLAYER_PROJECTILE_HIT_RADIUS) {
         const reflecting = game.phase === 'REFLECT' && inputSystem.isPressed(InputAction.IA_SECONDARY)
-        if (reflecting && !attack.reflected) {
-          attack.reflected = true
+        if (reflecting) {
+          attack.state = 'REFLECTED'
           attack.velocity = Vector3.create(-attack.velocity.x, -attack.velocity.y, -attack.velocity.z)
-          game.consecutiveReflections += 1
-          game.bossHealth = Math.max(0, game.bossHealth - 8)
-          warn('REFLECTION CONFIRMED', 0.65)
-          if (game.consecutiveReflections >= 3) game.achievement = true
-          if (game.bossHealth <= 0) beginExecution()
+          warn('PROJECTILE REFLECTED - RETURNING TO CORE', 0.65)
         } else {
+          attack.state = 'SPENT'
           damagePlayer(15)
           attack.age = attack.life
         }
       }
+
+      // Reflected shots can only hurt the boss, and each shot is spent on its first hit.
+      if (
+        attack.state === 'REFLECTED' &&
+        game.phase === 'REFLECT' &&
+        distance(attack.position, BOSS_HITBOX_CENTER) <= BOSS_PROJECTILE_HIT_RADIUS
+      ) {
+        attack.state = 'SPENT'
+        attack.age = attack.life
+        game.bossHealth = Math.max(0, game.bossHealth - 8)
+        game.consecutiveReflections += 1
+        warn('REFLECTED HIT CONFIRMED', 0.8)
+        if (game.consecutiveReflections >= 3) game.achievement = true
+      }
     }
     if (attack.age >= attack.life || attack.position.x < 0 || attack.position.x > 16 || attack.position.z < 0 || attack.position.z > 16) {
+      if (attack.state === 'REFLECTED') game.consecutiveReflections = 0
       engine.removeEntity(attack.entity)
       game.attacks.splice(i, 1)
     }
   }
+  if (game.phase === 'REFLECT' && game.bossHealth <= 0) beginExecution()
 }
 
 function beginExecution() {
