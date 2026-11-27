@@ -21,6 +21,7 @@ const ARENA_CENTER = Vector3.create(8, 0, 8)
 const BOSS_HITBOX_CENTER = Vector3.create(8, 2.5, 8)
 const PLAYER_PROJECTILE_HIT_RADIUS = 1.1
 const BOSS_PROJECTILE_HIT_RADIUS = 0.95
+const ENCOUNTER_DURATION_SECONDS = 5 * 60
 const PLAYER_MAX_HEALTH = 100
 const BOSS_MAX_HEALTH = 100
 const GENERATOR_POSITIONS = [
@@ -46,6 +47,7 @@ const game = {
   phase: 'AWAKENING' as Phase,
   phaseTime: 0,
   elapsed: 0,
+  remainingTime: ENCOUNTER_DURATION_SECONDS,
   playerHealth: PLAYER_MAX_HEALTH,
   bossHealth: BOSS_MAX_HEALTH,
   shield: 100,
@@ -299,6 +301,7 @@ function restartGame() {
   game.phase = 'AWAKENING'
   game.phaseTime = 0
   game.elapsed = 0
+  game.remainingTime = ENCOUNTER_DURATION_SECONDS
   game.playerHealth = PLAYER_MAX_HEALTH
   game.bossHealth = BOSS_MAX_HEALTH
   game.shield = 100
@@ -336,42 +339,7 @@ function tryCoreHit() {
   }
 }
 
-function phaseSystem(dt: number) {
-  if (game.ended) {
-    if (
-      inputSystem.isTriggered(InputAction.IA_PRIMARY, PointerEventType.PET_DOWN) ||
-      inputSystem.isTriggered(InputAction.IA_POINTER, PointerEventType.PET_DOWN)
-    ) {
-      restartGame()
-    }
-    return
-  }
-  game.elapsed += dt
-  game.phaseTime += dt
-  game.warningTime = Math.max(0, game.warningTime - dt)
-  game.attackCooldown -= dt
-
-  if (game.phase === 'AWAKENING' && game.phaseTime > 5) {
-    game.phase = 'SHIELD'
-    game.phaseTime = 0
-    game.attackCooldown = 2
-    warn('BREAK THE SHIELD - ACTIVATE ALL THREE GENERATORS', 4)
-  }
-  if (game.phase === 'AWAKENING' || game.phase === 'SHIELD') {
-    if (game.attackCooldown <= 0) {
-      spawnAttack(game.phase === 'AWAKENING' ? (Math.random() > 0.5 ? 'laser' : 'blast') : 'blast')
-      game.attackCooldown = game.phase === 'AWAKENING' ? 2.2 : 1.6
-      warn(game.phase === 'AWAKENING' ? 'LASER SWEEP - MOVE' : 'INCOMING ENERGY BLAST', 0.75)
-    }
-  } else if (game.phase === 'REFLECT') {
-    if (game.attackCooldown <= 0) {
-      spawnAttack('projectile')
-      game.attackCooldown = 1.15
-      warn('REFLECT NOW - HOLD F', 0.65)
-    }
-  }
-  updateAttacks(dt)
-  tryCoreHit()
+function syncHud() {
   hud.phase = game.phase
   hud.playerHealth = game.playerHealth
   hud.bossHealth = game.bossHealth
@@ -381,9 +349,59 @@ function phaseSystem(dt: number) {
   hud.generator3 = game.generators[2]
   hud.reactorHits = game.reactorHits
   hud.elapsed = game.elapsed
+  hud.remainingTime = game.remainingTime
   hud.warning = game.warningTime > 0 ? game.warning : ''
   hud.achievement = game.achievement
   hud.ended = game.ended
+}
+
+function phaseSystem(dt: number) {
+  if (game.ended) {
+    if (
+      inputSystem.isTriggered(InputAction.IA_PRIMARY, PointerEventType.PET_DOWN) ||
+      inputSystem.isTriggered(InputAction.IA_POINTER, PointerEventType.PET_DOWN)
+    ) {
+      restartGame()
+      syncHud()
+    }
+    return
+  }
+  game.elapsed += dt
+  game.phaseTime += dt
+  game.remainingTime = Math.max(0, game.remainingTime - dt)
+  game.warningTime = Math.max(0, game.warningTime - dt)
+  if (game.remainingTime <= 0) {
+    game.phase = 'DEFEAT'
+    game.ended = true
+    warn('TIME EXPIRED - FIREWALL COLLAPSED', 99)
+    game.attacks.forEach((attack) => engine.removeEntity(attack.entity))
+    game.attacks.length = 0
+  } else {
+    game.attackCooldown -= dt
+
+    if (game.phase === 'AWAKENING' && game.phaseTime > 5) {
+      game.phase = 'SHIELD'
+      game.phaseTime = 0
+      game.attackCooldown = 2
+      warn('BREAK THE SHIELD - ACTIVATE ALL THREE GENERATORS', 4)
+    }
+    if (game.phase === 'AWAKENING' || game.phase === 'SHIELD') {
+      if (game.attackCooldown <= 0) {
+        spawnAttack(game.phase === 'AWAKENING' ? (Math.random() > 0.5 ? 'laser' : 'blast') : 'blast')
+        game.attackCooldown = game.phase === 'AWAKENING' ? 2.2 : 1.6
+        warn(game.phase === 'AWAKENING' ? 'LASER SWEEP - MOVE' : 'INCOMING ENERGY BLAST', 0.75)
+      }
+    } else if (game.phase === 'REFLECT') {
+      if (game.attackCooldown <= 0) {
+        spawnAttack('projectile')
+        game.attackCooldown = 1.15
+        warn('REFLECT NOW - HOLD F', 0.65)
+      }
+    }
+    updateAttacks(dt)
+    tryCoreHit()
+  }
+  syncHud()
 }
 
 function pulseSystem(dt: number) {
@@ -423,11 +441,33 @@ export function main() {
   hud.warning = 'THE NULL KING AWAKENS'
   engine.addSystem(phaseSystem)
   engine.addSystem(pulseSystem)
+  let lastPlayerPosition: Vector3 | null = null
   engine.addSystem(() => {
-    if (inputSystem.isTriggered(InputAction.IA_JUMP, PointerEventType.PET_DOWN) && !game.ended) {
-      Physics.applyImpulseToPlayer(Vector3.create(0, 0, -1), 3)
-      warn('DODGE', 0.35)
+    const current = playerPosition()
+    let dx = 0
+    let dz = 0
+    if (lastPlayerPosition) {
+      dx = current.x - lastPlayerPosition.x
+      dz = current.z - lastPlayerPosition.z
     }
+    lastPlayerPosition = Vector3.create(current.x, current.y, current.z)
+
+    if (!inputSystem.isTriggered(InputAction.IA_JUMP, PointerEventType.PET_DOWN) || game.ended) return
+
+    let directionLength = Math.hypot(dx, dz)
+    if (directionLength <= 0.01) {
+      // A stationary dodge moves away from the boss; at arena center use -Z as a stable fallback.
+      dx = current.x - ARENA_CENTER.x
+      dz = current.z - ARENA_CENTER.z
+      directionLength = Math.hypot(dx, dz)
+      if (directionLength <= 0.01) {
+        dx = 0
+        dz = -1
+        directionLength = 1
+      }
+    }
+    Physics.applyImpulseToPlayer(Vector3.create(dx / directionLength, 0, dz / directionLength), 3)
+    warn('DODGE', 0.35)
   })
   console.log('[NULL-KING][BOOT] systems registered')
 }

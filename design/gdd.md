@@ -2,11 +2,11 @@
 
 ## Owner brief
 
-A lightweight Decentraland SDK7 final-boss experience for the Game Over 2026 jam. The player must defeat THE NULL KING in under five minutes through four readable phases: survive the awakening, disable three generators, reflect projectiles, then land three reactor hits.
+A lightweight Decentraland SDK7 final-boss experience for the Game Over 2026 jam. The player must defeat THE NULL KING before the five-minute countdown expires through four readable phases: survive the awakening, disable three generators, reflect projectiles, then land three reactor hits. Losing all player health or reaching zero time produces a defeat state.
 
 ## Core loop
 
-- Move with native Decentraland avatar locomotion and dodge danger with Space.
+- Move with native Decentraland avatar locomotion. Space dodges in the recent horizontal movement direction, or away from the boss when standing still.
 - Read red telegraphs, leave the danger area, and preserve health.
 - Walk close to each generator and press E once to synchronize it while the boss continues attacking.
 - In the reflection phase, hold F as a projectile reaches the player to send it back.

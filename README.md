@@ -1,17 +1,17 @@
 # THE LAST FIREWALL – RISE OF THE NULL KING
 
-A lightweight Decentraland SDK7 boss-fight scene for the Game Over 2026 jam. The encounter is designed to finish in under five minutes and targets the World `rgl31.dcl.eth`.
+A lightweight Decentraland SDK7 boss-fight scene for the Game Over 2026 jam. Defeat the Null King before the visible five-minute countdown reaches zero. The scene targets the World `rgl31.dcl.eth`.
 
 ## Gameplay
 
 Survive the four-phase encounter:
 
-1. **Awakening** – dodge the Null King's laser sweeps and energy blasts.
-2. **Shield** – approach all three generators and press **E** when prompted to synchronize them.
-3. **Reflect** – hold **F** as a core projectile reaches you to reflect it back. Three consecutive reflections unlock the hidden achievement.
-4. **Execution** – approach the exposed core and press **E** or click three times to purge the Null King.
+1. **Awakening** – move with **WASD** or the mobile left stick. Avoid the Null King's laser sweeps and energy blasts. Press **Space** to dodge along your recent movement direction; if standing still, the dodge pushes you away from the boss.
+2. **Shield** – approach each cyan generator to within 3 metres and press **E** once. Synchronize all three to break the shield.
+3. **Reflect** – hold **F** as a core bolt reaches you. The reflected bolt must travel back and hit the core to damage the boss. Three consecutive successful hits unlock the hidden achievement.
+4. **Execution** – when the core is exposed, move within 3.5 metres and press **E** or click it three times to purge the Null King.
 
-The native Decentraland avatar controls handle movement. **Space** applies a short dodge impulse. The scene tracks player health, boss health, attack collisions, phase transitions, victory, and defeat.
+The HUD shows the current phase number, remaining time, and both health bars. Losing all player health or running out of time results in defeat; completing the three core strikes results in victory. Press **E** or click after either result to restart.
 
 ## Run locally
 
